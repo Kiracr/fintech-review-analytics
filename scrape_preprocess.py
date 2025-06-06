@@ -126,3 +126,48 @@ def preprocess_data(df_raw):
           logging.warning(f"Warning: {final_null_check} null values detected in final dataset!")
           
      return df, final_rows, missing_percentage
+
+def main():
+     """Main function to orchestrate scraping and processing."""
+     all_bank_dataframes = []
+     
+     if os.path.exists(OUTPUT_FILENAME):
+        logging.warning(f"Output file '{OUTPUT_FILENAME}' already exists. Overwriting.")
+
+     # Scrape each bank
+     for name, app_id in APP_DEFINITIONS.items():
+        df_bank = scrape_bank_reviews(name, app_id, TARGET_COUNT_PER_BANK, LANGUAGE, COUNTRY)
+        if not df_bank.empty:
+             all_bank_dataframes.append(df_bank)
+        else:
+            logging.warning(f"Skipping {name} due to scraping issues.")
+
+     if not all_bank_dataframes:
+          logging.error("No data was scraped for any bank. Exiting.")
+          return
+
+     # Combine all data
+     df_raw_all = pd.concat(all_bank_dataframes, ignore_index=True)
+
+     # Preprocess
+     df_clean, final_count, missing_perc = preprocess_data(df_raw_all)
+     
+      # Check KPIs
+     logging.info("\n--- KPI Check ---")
+     logging.info(f"Total Reviews Collected & Cleaned: {final_count} (Target: >={MIN_REQUIRED_TOTAL})")
+     logging.info(f"Percentage of rows with missing critical data in raw fetch: {missing_perc:.2f}% (Target: < 5%)")
+     if final_count >= MIN_REQUIRED_TOTAL:
+         logging.info("KPI: Total review count MET.")
+     else:
+          logging.warning(f"KPI: Total review count NOT MET. Consider increasing TARGET_COUNT_PER_BANK ({TARGET_COUNT_PER_BANK}) or checking App IDs/Country/Language.")
+     if missing_perc < 5.0:
+         logging.info("KPI: Missing data percentage MET.")
+     else:
+          logging.warning("KPI: Missing data percentage NOT MET.")
+     
+     for name in APP_DEFINITIONS.keys():
+         count = len(df_clean[df_clean['bank']==name])
+         status = "MET" if count >= 400 else f"NOT MET (Got only {count})"
+         logging.info(f"Reviews for {name}: {count} (Target: >=400). Status: {status}")
+     logging.info("KPI: Clean CSV dataset & Git Repo organization is manual check.")
+     logging.info("-----------------\n")
