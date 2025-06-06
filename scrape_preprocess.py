@@ -20,7 +20,7 @@ APP_DEFINITIONS = {
 TARGET_COUNT_PER_BANK = 500 
 MIN_REQUIRED_TOTAL = 1200
 OUTPUT_FILENAME = "ethiopian_bank_reviews_cleaned.csv"
-COUNTRY = 'us' # 'us' often yields more reviews than 'et', adjust if needed
+COUNTRY = 'et' # 'us' often yields more reviews than 'et', adjust if needed
 LANGUAGE = 'en' # filter for english, though some Amharic might slip through or non-lang text
 COLUMNS_MAP = {
         'content': 'review',
