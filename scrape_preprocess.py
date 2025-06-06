@@ -171,3 +171,23 @@ def main():
          logging.info(f"Reviews for {name}: {count} (Target: >=400). Status: {status}")
      logging.info("KPI: Clean CSV dataset & Git Repo organization is manual check.")
      logging.info("-----------------\n")
+
+     # Save to CSV
+     if not df_clean.empty:
+        try:
+           df_clean.to_csv(OUTPUT_FILENAME, index=False, encoding='utf-8')
+           logging.info(f"Successfully saved clean data to {OUTPUT_FILENAME}")
+           # Display sample
+           print("\n--- Sample Data ---")
+           print(df_clean.head())
+           print("\n--- Value Counts per Bank ---")
+           print(df_clean['bank'].value_counts())
+            
+        except Exception as e:
+             logging.error(f"Error saving CSV file: {e}")
+     else:
+         logging.warning("Clean dataframe is empty, no CSV file saved.")
+
+
+if __name__ == "__main__":
+    main()
