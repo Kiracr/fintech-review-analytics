@@ -60,3 +60,69 @@ def scrape_bank_reviews(bank_name, app_id, count, lang, country):
     except Exception as e:
         logging.error(f"ERROR scraping {bank_name} ({app_id}): {e}")
         return pd.DataFrame() # Return empty df on error
+    
+# --- Preprocessing Function ---
+
+def preprocess_data(df_raw):
+     """Cleans and structures the raw scraped data."""
+     logging.info("--- Starting Preprocessing ---")
+     initial_rows = len(df_raw)
+     if initial_rows == 0:
+          logging.warning("No raw data to process.")
+          return pd.DataFrame(columns=FINAL_COLUMNS), 0, 100.0
+          
+     logging.info(f"Initial rows fetched: {initial_rows}")
+     
+     df = df_raw.copy()
+
+     # 1. Handle Missing Critical Data (before calculating missing %)
+     # Calculate nulls in key columns BEFORE dropping
+     null_content = df['content'].isnull().sum()
+     null_score = df['score'].isnull().sum()
+     null_date = df['at'].isnull().sum()
+     total_nulls = null_content + null_score + null_date
+     # Calculate missing percentage based on *any* critical field being null in a row
+     rows_with_missing_critical = df[df['content'].isnull() | df['score'].isnull() | df['at'].isnull()]
+     missing_percentage = (len(rows_with_missing_critical) / initial_rows) * 100 if initial_rows > 0 else 0
+     logging.info(f"Rows with missing critical data (content, score, at): {len(rows_with_missing_critical)} ({missing_percentage:.2f}%)")
+
+    
+     # Drop rows where 'content' (review text), score or date is missing - they are unusable
+     df.dropna(subset=['content', 'score', 'at'], inplace=True)
+      # Also remove empty strings or just whitespace
+     df['content'] = df['content'].str.strip()
+     df = df[df['content'] != ""]
+     df = df[df['content'].str.len() > 0]
+     logging.info(f"Rows after dropping null/empty content/score/date: {len(df)}")
+
+      # 2. Remove Duplicates
+     # Use reviewId as the most reliable unique identifier from the scraper
+     duplicates_count = df.duplicated(subset=['reviewId']).sum()
+     df.drop_duplicates(subset=['reviewId'], keep='first', inplace=True)
+     logging.info(f"Removed {duplicates_count} duplicate reviews based on reviewId. Rows remaining: {len(df)}")
+
+     # 3. Select and Rename Columns
+     # Check if all required columns exist before selecting
+     required_raw_cols = list(COLUMNS_MAP.keys()) + ['bank', 'source']
+     if not all(col in df.columns for col in required_raw_cols):
+          missing = [col for col in required_raw_cols if col not in df.columns]
+          logging.error(f"Missing expected columns in dataframe: {missing}")
+          return pd.DataFrame(columns=FINAL_COLUMNS), len(df), missing_percentage
+          
+     df = df[required_raw_cols].rename(columns=COLUMNS_MAP)
+
+     # 4. Normalize Date
+     # Convert to datetime first, then format as YYYY-MM-DD string
+     df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+     
+     # 5. Final Column Order
+     df = df[FINAL_COLUMNS]
+     
+     final_rows = len(df)
+     logging.info(f"Preprocessing complete. Final row count: {final_rows}")
+     # Verify no nulls remain in the final dataset
+     final_null_check = df.isnull().sum().sum()
+     if final_null_check > 0:
+          logging.warning(f"Warning: {final_null_check} null values detected in final dataset!")
+          
+     return df, final_rows, missing_percentage
