@@ -131,3 +131,88 @@ def extract_top_keywords_per_theme(df):
             theme_keywords_summary[theme] = ["N/A"]
 
     return theme_keywords_summary
+
+# --- Main Execution ---
+
+def main():
+    """Main function to orchestrate the analysis pipeline."""
+    # 1. Load Data
+    if not os.path.exists(INPUT_CSV):
+        logging.error(f"Input file not found: {INPUT_CSV}. Please run Task 1 first.")
+        return
+
+    logging.info(f"Loading data from {INPUT_CSV}")
+    df = pd.read_csv(INPUT_CSV)
+    df.dropna(subset=['review'], inplace=True) # Ensure no null reviews
+    
+    # 2. Preprocess Text for Thematic Analysis
+    logging.info("Preprocessing text for thematic analysis (lemmatization)...")
+    df['lemmatized_review'] = df['review'].apply(preprocess_text)
+
+    # 3. Sentiment Analysis
+    reviews_list = df['review'].tolist()
+    sentiment_labels, sentiment_scores = analyze_sentiment(reviews_list)
+    
+    if sentiment_labels is None:
+        logging.error("Sentiment analysis failed. Aborting.")
+        return
+        
+    df['sentiment_label'] = sentiment_labels
+    df['sentiment_score'] = sentiment_scores
+    # Normalize score: make negative scores negative
+    df['sentiment_score'] = df.apply(
+        lambda row: -row['sentiment_score'] if row['sentiment_label'] == 'NEGATIVE' else row['sentiment_score'], 
+        axis=1
+    )
+    logging.info("Sentiment analysis complete.")
+    
+    # 4. Thematic Analysis (Rule-Based)
+    logging.info("Assigning themes based on keywords...")
+    df['theme'] = df['lemmatized_review'].apply(assign_themes)
+    logging.info("Thematic analysis complete.")
+
+    # 5. KPI Reporting & Summary
+    print("\n--- Analysis Summary & KPI Check ---")
+    
+    # KPI 1: Sentiment scores for 90%+ reviews
+    sentiment_coverage = (df['sentiment_label'].notna().sum() / len(df)) * 100
+    print(f"Sentiment Analysis Coverage: {sentiment_coverage:.2f}% (Target: >90%)")
+    if sentiment_coverage > 90:
+        print("KPI: Sentiment coverage MET.")
+    else:
+        print("KPI: Sentiment coverage NOT MET.")
+
+    # Aggregate sentiment by bank
+    print("\n--- Average Sentiment Score by Bank (-1 to 1) ---")
+    avg_sentiment = df.groupby('bank')['sentiment_score'].mean().sort_values(ascending=False)
+    print(avg_sentiment.to_string())
+
+    # Aggregate sentiment by bank and rating
+    print("\n--- Average Sentiment by Bank and Rating ---")
+    print(df.groupby(['bank', 'rating'])['sentiment_score'].mean().unstack().to_string(float_format="%.2f"))
+
+    # KPI 2: 3+ themes per bank
+    print("\n--- Theme Distribution per Bank ---")
+    theme_counts = df.groupby('bank')['theme'].value_counts()
+    print(theme_counts.to_string())
+    
+    # KPI 3: Top keywords per theme (validation)
+    top_keywords = extract_top_keywords_per_theme(df)
+    print("\n--- Top Keywords per Identified Theme (from TF-IDF) ---")
+    for theme, keywords in top_keywords.items():
+        print(f"  - {theme}: {', '.join(keywords)}")
+
+    # 6. Save Results
+    # Select final columns to save
+    final_cols = [
+        'review', 'rating', 'date', 'bank', 
+        'sentiment_label', 'sentiment_score', 'theme'
+    ]
+    df_to_save = df[final_cols]
+    
+    logging.info(f"Saving analyzed data to {OUTPUT_CSV}")
+    df_to_save.to_csv(OUTPUT_CSV, index=False, encoding='utf-8')
+    logging.info("Analysis pipeline complete.")
+
+if __name__ == "__main__":
+    main()
