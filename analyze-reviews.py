@@ -86,3 +86,48 @@ def analyze_sentiment(texts, batch_size=32):
     labels = [res['label'] for res in all_results]
     scores = [res['score'] for res in all_results]
     return labels, scores
+
+def assign_themes(lemmatized_review):
+    """Assigns one or more themes to a review based on keyword matching."""
+    assigned_themes = []
+    for theme, keywords in THEME_KEYWORDS.items():
+        if any(keyword in lemmatized_review for keyword in keywords):
+            assigned_themes.append(theme)
+    
+    if not assigned_themes:
+        return "General Feedback" # Default theme
+    
+    return ", ".join(assigned_themes) # Join multiple themes with a comma
+
+def extract_top_keywords_per_theme(df):
+    """Uses TF-IDF to find top keywords for each identified theme."""
+    logging.info("Extracting top keywords for each theme using TF-IDF...")
+    theme_keywords_summary = {}
+    
+    # We need to handle reviews that have multiple themes. We'll treat each assignment as a document.
+    # Explode the DataFrame so each row has one theme.
+    df_themes = df.copy()
+    df_themes['theme'] = df_themes['theme'].str.split(', ')
+    df_exploded = df_themes.explode('theme')
+    
+    for theme in df_exploded['theme'].unique():
+        if theme == "General Feedback":
+            continue
+            
+        # Get all review texts for the current theme
+        theme_corpus = df_exploded[df_exploded['theme'] == theme]['review'].tolist()
+        
+        if len(theme_corpus) < 10: # Skip if not enough data for meaningful TF-IDF
+            logging.warning(f"Skipping keyword extraction for theme '{theme}' due to insufficient data ({len(theme_corpus)} reviews).")
+            continue
+            
+        try:
+            vectorizer = TfidfVectorizer(max_features=10, preprocessor=lambda x: ' '.join(preprocess_text(x)))
+            tfidf_matrix = vectorizer.fit_transform(theme_corpus)
+            top_keywords = vectorizer.get_feature_names_out()
+            theme_keywords_summary[theme] = top_keywords.tolist()
+        except ValueError:
+            logging.warning(f"Could not extract keywords for theme '{theme}', likely due to empty vocabulary.")
+            theme_keywords_summary[theme] = ["N/A"]
+
+    return theme_keywords_summary
