@@ -107,3 +107,27 @@ def generate_word_clouds(df):
         plt.title(f"Word Cloud of Pain Points for {bank}", fontsize=20)
         plt.savefig(os.path.join(OUTPUT_DIR, f"4_wordcloud_{bank.replace(' ', '_')}.png"))
         plt.close()
+
+# --- Main Execution ---
+
+def main():
+    """Main function to orchestrate the visualization pipeline."""
+    # 1. Load Data
+    if not os.path.exists(INPUT_CSV):
+        logging.error(f"Input file not found: {INPUT_CSV}. Please run Task 2 first.")
+        return
+
+    logging.info(f"Loading analyzed data from {INPUT_CSV}")
+    df = pd.read_csv(INPUT_CSV)
+    
+    # 2. Setup and Generate Plots
+    setup_plots()
+    plot_rating_distribution(df)
+    plot_sentiment_by_bank(df)
+    plot_theme_distribution(df)
+    generate_word_clouds(df)
+
+    logging.info(f"All visualizations have been saved to the '{OUTPUT_DIR}' directory.")
+
+if __name__ == "__main__":
+    main()
