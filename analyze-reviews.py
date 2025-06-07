@@ -28,3 +28,23 @@ THEME_KEYWORDS = {
     'Customer Support': ['support', 'customer', 'service', 'call', 'center', 'help', 'contact', 'response', 'agent', 'branch'],
     'Features & Functionality': ['feature', 'add', 'option', 'cbebirr', 'telebirr', 'loan', 'statement', 'balance', 'notification']
 }
+
+# --- NLP Preprocessing ---
+# Load spaCy model once
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    logging.error("SpaCy model 'en_core_web_sm' not found. Please run 'python -m spacy download en_core_web_sm'")
+    exit()
+
+def preprocess_text(text):
+    """Lemmatizes and removes stopwords from a text."""
+    if not isinstance(text, str):
+        return []
+    doc = nlp(text.lower())
+    lemmas = [
+        token.lemma_ 
+        for token in doc 
+        if not token.is_stop and not token.is_punct and token.is_alpha
+    ]
+    return lemmas
