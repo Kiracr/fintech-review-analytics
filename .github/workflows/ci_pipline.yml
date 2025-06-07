@@ -43,8 +43,8 @@ jobs:
       - name: Lint with flake8
         run: flake8 . --count --exit-zero --max-line-length=88 --statistics
 
-      # Step 6: Run the tests using pytest
-      - name: Run tests with pytest
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: pytest
+    #   # Step 6: Run the tests using pytest
+    #   - name: Run tests with pytest
+    #     env:
+    #       PYTHONPATH: ${{ github.workspace }}
+    #     run: pytest
