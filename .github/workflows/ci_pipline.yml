@@ -1,0 +1,53 @@
+# .github/workflows/ci_pipeline.yml
+name: Python CI Pipeline
+
+# Controls when the workflow will run
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      # Run tests on multiple Python versions
+      matrix:
+        python-version: ["3.9", "3.10"]
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up the specified Python version
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      # Step 4: Download spaCy model required for tests
+      - name: Download spaCy model
+        run: |
+          python -m spacy download en_core_web_sm
+
+      # Step 5: Lint with flake8 for code quality
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      # Step 6: Run tests with pytest
+      - name: Test with pytest
+        run: |
+          pytest
