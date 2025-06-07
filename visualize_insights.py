@@ -50,3 +50,60 @@ def plot_sentiment_by_bank(df):
     plt.xticks(rotation=10)
     plt.savefig(os.path.join(OUTPUT_DIR, "2_sentiment_by_bank.png"))
     plt.close()
+
+def plot_theme_distribution(df):
+    """Plots the frequency of each theme, stacked by bank."""
+    logging.info("Generating plot 3: Review Theme Distribution by Bank...")
+    
+    # Explode themes for accurate counting
+    df_themes = df.copy()
+    df_themes['theme'] = df_themes['theme'].str.split(', ')
+    df_exploded = df_themes.explode('theme')
+    
+    # Create a crosstab for plotting
+    theme_bank_crosstab = pd.crosstab(df_exploded['theme'], df_exploded['bank'])
+    
+    # Filter out 'General Feedback' for a cleaner plot if it dominates
+    if 'General Feedback' in theme_bank_crosstab.index:
+        theme_bank_crosstab = theme_bank_crosstab.drop('General Feedback')
+
+    plt.figure()
+    theme_bank_crosstab.plot(kind='barh', stacked=True, figsize=(12, 8))
+    plt.title("Frequency of Review Themes by Bank")
+    plt.xlabel("Number of Reviews")
+    plt.ylabel("Theme")
+    plt.legend(title='Bank')
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTPUT_DIR, "3_theme_distribution_by_bank.png"))
+    plt.close()
+
+def generate_word_clouds(df):
+    """Generates a word cloud for negative reviews for each bank."""
+    logging.info("Generating plot 4: Word Clouds for Negative Reviews...")
+    
+    banks = df['bank'].unique()
+    
+    for bank in banks:
+        plt.figure()
+        # Filter for negative reviews for the current bank
+        text = " ".join(review for review in df[(df['bank'] == bank) & (df['sentiment_label'] == 'NEGATIVE')]['review'])
+        
+        if not text:
+            logging.warning(f"No negative reviews to generate word cloud for {bank}.")
+            continue
+            
+        wordcloud = WordCloud(
+            background_color="white",
+            width=800,
+            height=400,
+            colormap='Reds',
+            max_words=100,
+            contour_width=3,
+            contour_color='firebrick'
+        ).generate(text)
+        
+        plt.imshow(wordcloud, interpolation='bilinear')
+        plt.axis("off")
+        plt.title(f"Word Cloud of Pain Points for {bank}", fontsize=20)
+        plt.savefig(os.path.join(OUTPUT_DIR, f"4_wordcloud_{bank.replace(' ', '_')}.png"))
+        plt.close()
