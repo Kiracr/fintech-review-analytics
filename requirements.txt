@@ -13,3 +13,5 @@ spacy==3.7.2
 matplotlib==3.8.1
 seaborn==0.13.0
 wordcloud==1.9.2
+
+psycopg2-binary==2.9.9
